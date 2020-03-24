@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8">
+    <title></title>
+  </head>
+  <body>
+    <form class="" action="{% url 'tabletops:create' %}" method="post">
+      {% csrf_token %}
+      <input type="text" name="name" required><input type="number" name="height" value="8" required><input type="number" name="width" value="8" required><button type="submit">New template</button>
+    </form>
+
+      {% for template in templates %}
+      <a href="{% url 'tabletops:template_edit' template.name %}">{{template.name}}</a>
+      {% endfor %}
+  </body>
+</html>

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8">
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <title>{{template_name}} template</title>
+    <style type="text/css">
+      .board{
+        display: grid;
+        grid-template-columns: repeat({{board_width}}, 150px);
+        grid-template-rows: repeat({{board_height}}, 150px);
+        width: 80%;
+      }
+      .chat{
+        width: 20%;
+        display: flex;
+        flex-direction: column;
+      }
+      #app{
+        display: flex;
+        flex-direction: row;
+      }
+      .chatLog{
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+      }
+      .black{
+        background-color: dimgrey;
+      }
+      .white{
+        background-color: white;
+      }
+      .red{
+        background-color: darkred;
+      }
+      .inlineTextIn {
+        display: inline;
+        width: 50px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div class="board">
+        <div v-for="spot in board" :class="spot.color" :title="'X: ' + spot.x + ', Y: '+spot.y+ ', pieces: '+ spot.pieces.length" @click="paintTool(spot)">
+          <button @click="addPiece(spot)">place piece</button>
+          <div v-if="spot.pieces.length != 0">
+            <input type="text" v-model="spot.pieces[0].name">
+            <input v-if="spot.pieces[0].name" type="url" v-model="spot.pieces[0].img">
+            <button @click="removePiece(spot)">removePiece</button>
+          </div>
+          <button @click="paintSpot(spot)">paint</button>
+        </div>
+      </div>
+      <div class="chat">
+        <div>
+          <input type="text" v-model="newPeiceName" placeholder="new peice name">
+          <input type="url" v-model="newPeiceImg" placeholder="new peice img url">
+        </div>
+        <div>
+          <p v-if="XYError">[[XYError]]</p>
+          X = <input class="inlineTextIn" type="text" v-model="selectedXVal"> to <input class="inlineTextIn" type="text" v-model="modXVal"><button @click="changeXValues">change X</button><br>
+          Y = <input class="inlineTextIn" type="text" v-model="selectedYVal"> to <input class="inlineTextIn" type="text" v-model="modYVal"><button @click="changeYValues">change Y</button><br>
+        </div>
+        <div>
+          paint tool type:
+          <select v-model="paint_tool">
+            <option value="none">none</option>
+            <option value="color">color</option>
+            <option value="piece">add piece</option>
+          </select>
+        </div>
+        <div>
+          paint color
+          <select v-model="paint_color">
+            <option value="white">white</option>
+            <option value="red">red</option>
+            <option value="black">black</option>
+          </select>
+        </div>
+        <div v-if="saveMessage">
+          [[saveMessage]]
+        </div>
+        <input type="checkbox" id="visible" v-model="visible"><label for="visible">make visible</label>
+        <button @click="saveBoard">save</button>
+      </div>
+    </div>
+    <script type="text/javascript">
+      let app = new Vue({
+        el: '#app',
+        delimiters: ['[[',']]'],
+        data: {
+          board: {{board_state|safe}},
+          columns: {{board_width}},
+          rows: {{board_height}},
+          saveMessage: '',
+          newPeiceName: '',
+          newPeiceImg: '',
+          selectedXVal: '',
+          modXVal: '',
+          selectedYVal: '',
+          modYVal: '',
+          visible: {% if visible %}true{% else %}false{% endif %},
+          XYError: '',
+          paint_color: 'white',
+          paint_tool: 'none',
+        },
+        methods: {
+          saveBoard: function() {
+            axios({
+              method: 'post',
+              url: '{% url 'tabletops:save_temp' %}',
+              headers: {
+                'X-CSRFToken': '{{csrf_token}}'
+              },
+              data: {
+                'board_state': JSON.stringify(this.board),
+                'template_name': '{{template_name}}',
+                'visible': this.visible,
+              }
+            }).then(response => {
+              if (response.data){
+                this.saveMessage = response.data
+              }
+            })
+          },
+          addPiece: function(spot) {
+            spot.pieces.unshift({'name': this.newPeiceName, 'img': this.newPeiceImg})
+          },
+          removePiece: function(spot) {
+            spot.pieces.shift()
+          },
+          changeXValues: function() {
+            this.XYError = ''
+            this.board.forEach((spot, i) => {
+              if (spot.x == this.modXVal) {
+                this.XYError = 'column exists with that value already, please use a placeholder if you wish to swap them'
+              }
+            })
+            if (this.XYError == ''){
+              this.board.forEach((spot, i) => {
+                if (spot.x == this.selectedXVal) {
+                  spot.x = this.modXVal
+                }
+              })
+            }
+          },
+          changeYValues: function() {
+            this.XYError = ''
+            this.board.forEach((spot, i) => {
+              if (spot.y == this.modYVal) {
+                this.XYError = 'row exists with that value already, please use a placeholder if you wish to swap them'
+              }
+            })
+            if (this.XYError == ''){
+              this.board.forEach((spot, i) => {
+                if (spot.y == this.selectedYVal) {
+                  spot.y = this.modYVal
+                }
+              })
+            }
+          },
+          paintSpot: function(spot) {
+            spot.color = this.paint_color
+          },
+          paintTool: function(spot) {
+            if (this.paint_tool == 'color') {
+              this.paintSpot(spot)
+            } else if (this.paint_tool == 'piece') {
+              this.addPiece(spot)
+            }
+          }
+        },
+        created: function() {
+          console.log(this.board);
+        }
+      })
+    </script>
+  </body>
+</html>

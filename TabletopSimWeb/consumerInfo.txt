@@ -1,0 +1,37 @@
+{'scope':
+  {
+    'type': 'websocket',
+    'path': '/ws/chat/new/',
+    'raw_path': b'/ws/chat/new/',
+    'headers': [
+      (b'host', b'localhost:8000'),
+      (b'connection', b'Upgrade'),
+      (b'pragma', b'no-cache'),
+      (b'cache-control', b'no-cache'),
+      (b'user-agent', b'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.132 Safari/537.36'),
+      (b'upgrade', b'websocket'),
+      (b'origin', b'http://localhost:8000'),
+      (b'sec-websocket-version', b'13'),
+      (b'accept-encoding', b'gzip, deflate, br'),
+      (b'accept-language', b'en-US,en;q=0.9,ja;q=0.8'),
+      (b'cookie', b'csrftoken=UOYCAWmov6f2oni1PRHbHkeivcrXC7pKdE1FiTylYCsS7kf3X7pfmuDtzNPMiGm7; sessionid=oyt26zrfya2n1ad0dke5nwt035j7xsb6'),
+      (b'sec-websocket-key', b'tIv2z4liPJkdrZHHIdRqWA=='),
+      (b'sec-websocket-extensions', b'permessage-deflate; client_max_window_bits')
+    ],
+    'query_string': b'',
+    'client': ['127.0.0.1', 51156],
+    'server': ['127.0.0.1', 8000],
+    'subprotocols': [],
+    'cookies': {
+      'csrftoken': 'UOYCAWmov6f2oni1PRHbHkeivcrXC7pKdE1FiTylYCsS7kf3X7pfmuDtzNPMiGm7',
+      'sessionid': 'oyt26zrfya2n1ad0dke5nwt035j7xsb6'
+    },
+    'session': <django.utils.functional.LazyObject object at 0x0591F088>,
+    'user': <channels.auth.UserLazyObject object at 0x0591F100>,
+    'path_remaining': '',
+    'url_route': {'args': (), 'kwargs': {'room_name': 'new'}}
+  },
+  'groups': [],
+  'channel_layer': None,
+  'base_send': <asgiref.sync.AsyncToSync object at 0x0591F0D0>
+}

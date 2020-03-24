@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8">
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <title>{{room_name}}</title>
+    <style type="text/css">
+      body{
+        background-color: #444;
+        margin: 0.5vh;
+      }
+      .board{
+        display: grid;
+        grid-template-columns: repeat({{board_width}}, {{calcVh}}vh);
+        grid-template-rows: repeat({{board_height}}, {{calcVh}}vh);
+        width: auto;
+        background-color: gold;
+        padding: 0.4vh;
+        border: 0.6vh solid black;
+      }
+      .chat{
+        width: auto;
+        height: 47.5vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        background-color: #333;
+        color: white;
+      }
+      .boardside{
+        overflow: auto;
+        width: auto;
+        height: 47.5vh;
+        display: flex;
+        flex-direction: column;
+        background-color: #333;
+        color: white;
+      }
+      .messages{
+        overflow: auto;
+        height: 100%
+      }
+      .sidebar{
+        padding: 0.5vh;
+        width: auto;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        background-color: #333;
+        color: white;
+      }
+      #app{
+        display: flex;
+        flex-direction: row;
+      }
+      .black{
+        background-color: dimgrey;
+      }
+      .white{
+        background-color: white;
+      }
+      .red{
+        background-color: darkred;
+      }
+      .board div{
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      .piece{
+        display: block;
+        max-width: 100%;
+        max-height: 100%;
+      }
+      .time{
+        color: grey;
+      }
+      .name{
+        color: green;
+      }
+      .remove{
+        border-radius: 2px;
+        border: 1px dashed white;
+      }
+      .tinyPiece{
+        display: inline;
+        max-width: 1em;
+        max-height: 1em;
+      }
+      .invites{
+        height: 3vh;
+        display: flex;
+        align-items: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div class="board">
+        <div v-for="(spot, index) in board" :class="spot.color" @click="movePiece(spot, index)">
+          <img class='piece' v-if="spot.pieces.length != 0" :src="spot.pieces[0].img" :alt="spot.pieces[0].name">
+        </div>
+      </div>
+      <div class="sidebar">
+        <div class="boardside">
+          <div v-if="selectedSpot" class="remove" @click="toOffBoard">
+            remove piece(s) from board
+          </div>
+          <div v-for="(piece, index) in off_board" @click="fromOffBoard(index)">
+            <img class='tinyPiece' :src="piece.img" :alt="piece.name + ' icon'">[[piece.name]]
+          </div>
+        </div>
+        <div class="invites">
+          <button>invite/remove players</button>
+        </div>
+        <div class="chat">
+          <div class="messages">
+            <div v-for="(message, index) in messages">
+              <div v-if="showUsername(index)" class="name">
+                [[message.user]]: <span class="time">[[message.time.toLocaleString()]]</span>
+              </div>
+              <div class="message">
+                [[message.message]]
+              </div>
+            </div>
+          </div>
+          <div class="chatinputs">
+            <input type="text" v-model="chatIn"><button type="button" @click="sendMessage">Send</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script type="text/javascript">
+      let app = new Vue({
+        el: '#app',
+        delimiters: ['[[',']]'],
+        data: {
+          chatIn: '',
+          board: {{board|safe}},
+          off_board: {{off_board|safe}},
+          columns: {{board_width}},
+          rows: {{board_height}},
+          selectedSpot: null,
+          selectedIndex: -1,
+          messages: [],
+          selectedPiece: 0,
+          offBoardPiece: null,
+        },
+        methods: {
+          movePiece: function(spot, index) {
+            if (this.offBoardPiece != null){
+              this.socket.send(JSON.stringify({
+                  'type': 'move', 'content': {'piece': this.selectedPiece, 'from': {'x': -1, 'y': -1, 'i': -1}, 'to': {'x': spot.x, 'y': spot.y, 'i': index}}
+              }))
+              this.selectedSpot = null
+              this.offBoardPiece = null
+              this.selectedIndex = -1
+            } else if (this.selectedSpot == spot){
+              this.selectedIndex = -1
+              this.selectedSpot = null
+            } else if (this.selectedSpot){
+              this.socket.send(JSON.stringify({
+                  'type': 'move', 'content': {'piece': this.selectedPiece, 'from': {'x': this.selectedSpot.x, 'y': this.selectedSpot.y, 'i': this.selectedIndex}, 'to': {'x': spot.x, 'y': spot.y, 'i': index}}
+              }))
+              this.selectedSpot = null
+              this.selectedIndex = -1
+            } else if (spot.pieces.length != 0) {
+              console.log('pieces here');
+              this.selectedSpot = spot
+              this.selectedIndex = index
+              if (this.selectedPiece > 0) {
+                this.selectedPiece = 0
+              }
+            }
+          },
+          toOffBoard: function() {
+            if (this.selectedSpot){
+              console.log('sent thingy');
+              this.socket.send(JSON.stringify({
+                  'type': 'move', 'content': {'piece': this.selectedPiece, 'from': {'x': this.selectedSpot.x, 'y': this.selectedSpot.y, 'i': this.selectedIndex}, 'to': {'x': -1, 'y': -1, 'i': -1}}
+              }))
+              this.selectedSpot = null
+              this.selectedIndex = -1
+            }
+          },
+          fromOffBoard: function(index) {
+            this.selectedSpot = null
+            if (this.offBoardPiece != index){
+              this.offBoardPiece = index
+            } else {
+              this.offBoardPiece = null
+            }
+          },
+          sendMessage: function() {
+            if (this.chatIn != '') {
+              this.socket.send(JSON.stringify({
+                  'type': 'message', 'content': {'message': this.chatIn}
+              }))
+            }
+          },
+          showUsername: function(i) {
+            if (i==0){
+              return true
+            } else if (this.messages[i].user == this.messages[i - 1].user && this.messages[i].time.valueOf()-60000 < this.messages[i - 1].time.valueOf()){
+              return false
+            } else {
+              return true
+            }
+          }
+        },
+        created: function() {
+          let roomName = "{{ room_name|escapejs }}";
+          this.socket = new WebSocket('ws://' + window.location.host +
+          '/ws/games/' + roomName + '/')
+          let connected = false
+          this.socket.onopen = () => {
+            connected = true
+            this.socket.onmessage = (e) => {
+              var data = JSON.parse(e.data)
+              console.log(data);
+              var user = data['user']
+              if (data['type'] == "message") {
+                var content = data['content']
+                this.messages.push({'user': content.user, 'time': new Date(content.time), 'message': content.message})
+              } else if (data['type'] == "move") {
+                var content = data['content']
+                if (content.from.i == -1){
+                  let endSpot = this.board[content.to.i]
+                  let movedPieces = this.off_board[content.piece].name
+                  this.messages.push({'user': 'system', 'time': new Date(content.time), 'message': content.user + ' moved ' + movedPieces + ' from off of board to x:' + endSpot.x + ', y:' + endSpot.y + '.' })
+                  endSpot.pieces.unshift(this.off_board[content.piece])
+                } else if (content.to.i == -1){
+                  let startSpot = this.board[content.from.i]
+                  let movedPieces = ''
+                  if (content.piece == -1){
+                    movedPieces = 'piece stack'
+                  } else {
+                    movedPieces = startSpot.pieces[content.piece].name
+                  }
+                  this.messages.push({'user': 'system', 'time': new Date(content.time), 'message': content.user + ' moved ' + movedPieces + ' from x:' + startSpot.x + ', y:' + startSpot.y + ' off of board.' })
+                  if (content.piece >= 0){
+                    if (!this.off_board.includes(startSpot.pieces[content.piece])){
+                      this.off_board.unshift(startSpot.pieces[content.piece])
+                    }
+                    startSpot.pieces.splice(content.piece, 1)
+                  } else {
+                    startSpot.pieces.forEach((piece) => {
+                      if (!this.off_board.includes(piece)){
+                        this.off_board.unshift(piece)
+                      }
+                    })
+                    startSpot.pieces = {}
+                  }
+                  if (startSpot == this.selectedSpot){
+                    this.selectedSpot = null
+                  }
+                } else {
+                  let startSpot = this.board[content.from.i]
+                  let endSpot = this.board[content.to.i]
+                  let movedPieces = ''
+                  if (content.piece == -1){
+                    movedPieces = 'piece stack'
+                  } else {
+                    movedPieces = startSpot.pieces[content.piece].name
+                  }
+                  this.messages.push({'user': 'system', 'time': new Date(content.time), 'message': content.user + ' moved ' + movedPieces + ' from x:' + startSpot.x + ', y:' + startSpot.y + ' to x:' + endSpot.x + ', y:' + endSpot.y + '.' })
+                  if (content.piece >= 0){
+                    endSpot.pieces.unshift(startSpot.pieces[content.piece])
+                    startSpot.pieces.splice(content.piece, 1)
+                  } else {
+                    startSpot.pieces.forEach((piece) => {
+                      endSpot.pieces.unshift(piece)
+                    })
+                    startSpot.pieces = {}
+                  }
+                  if (startSpot == this.selectedSpot){
+                    this.selectedSpot = null
+                  }
+                }
+              } else {
+                this.messages.push({'user': 'ERROR', 'time': new Date(Date.now()), 'message': 'invalid data type recieved'})
+              }
+            }
+          }
+          this.socket.onclose = (e) => {
+              console.error('game socket closed')
+              if (connected == false) {
+                this.messages.push({'user': 'ERROR', 'time': new Date(Date.now()), 'message': 'network error, if you are invited to this room please reload, if you are not, please quit messing around.'})
+              } else {
+                this.messages.push({'user': 'ERROR', 'time': new Date(Date.now()), 'message': 'network error, please reload.'})
+              }
+          }
+        }
+      })
+    </script>
+  </body>
+</html>
