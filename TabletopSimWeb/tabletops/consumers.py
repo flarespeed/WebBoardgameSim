@@ -147,3 +147,6 @@ class GameConsumer(AsyncWebsocketConsumer):
                 'to': move['to']
             }
         }))
+
+    async def kick_user(self, event):
+        reason = event['reason']

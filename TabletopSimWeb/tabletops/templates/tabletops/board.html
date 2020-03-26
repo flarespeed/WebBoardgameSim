@@ -96,15 +96,35 @@
         display: flex;
         align-items: center;
       }
-      .selected{
+      .selected {
         background-color: darkslategrey;
+      }
+      .selectedBoard {
+        border-color: darkslategrey;
+      }
+      .floater{
+        background-color: #333;
+        border-radius: 3px;
+        padding: 5px;
+        border: 1px solid dimgrey;
+        position: absolute;
+        width: 300px;
+        overflow: auto;
+      }
+      .floater > *{
+        margin-bottom: 4px;
+      }
+      .moveBar{
+        display: flex;
+        flex-direction: row-reverse;
+        background-color: #444;
       }
     </style>
   </head>
   <body>
     <div id="app">
       <div class="board">
-        <div v-for="(spot, index) in board" :class="spot.color" @click="movePiece(spot, index)">
+        <div v-for="(spot, index) in board" :class="spot.color + ' ' + {selected:index == selectedSpot}" @click="movePiece(spot, index)">
           <img class='piece' v-if="spot.pieces.length != 0" :src="spot.pieces[0].img" :alt="spot.pieces[0].name">
         </div>
       </div>
@@ -116,19 +136,25 @@
           <div v-if="selectedSpot" class="remove" @click="toOffBoard">
             remove piece(s) from board
           </div>
-          <div v-for="(piece, index) in off_board" @click="fromOffBoard(index)">
+          <div v-for="(piece, index) in off_board" :class="{selected:index == offBoardPiece}" @click="fromOffBoard(index)">
             <img class='tinyPiece' :src="piece.img" :alt="piece.name + ' icon'">[[piece.name]]
           </div>
         </div>
         <div class="invites">
-          <button v-if="admin">invite/remove players</button>
-          <button v-if="!admin">whitelisted players</button>
-          <div v-if="whitelistOpen" class="floater" :style="'top: '+ whitelistTop + '; left: ' + whitelistLeft">
+          <button v-if="admin" @click='openWhitelist'>invite/remove players</button>
+          <button v-if="!admin" @click='openWhitelist'>whitelisted players</button>
+          <div v-if="whitelistOpen" class="floater" :style="'top: '+ whitelistTop + 'px; left: ' + whitelistLeft + 'px'">
+            <div class="moveBar">
+              <button @click='openWhitelist'>X</button>
+            </div>
+            <div v-if="whitelistError">
+              [[whitelistError]]
+            </div>
             <div v-if="admin">
-              <input type="text" @keypress="inviteUserEnter" placeholder="username" v-model="inviteUsername"><button @click="inviteUser">invite</button>
+              <input type="text" @keypress.enter="inviteUser" placeholder="username" v-model="inviteUsername"><button @click="inviteUser">invite</button>
             </div>
             <div v-for="username in whitelist">
-              [[username]] <button v-if="admin" @click>kick</button>
+              [[username]] <button v-if="admin">kick</button>
             </div>
           </div>
         </div>
@@ -144,7 +170,7 @@
             </div>
           </div>
           <div class="chatinputs">
-            <input type="text" v-model="chatIn" @keypress="enterKeyChat"><button type="button" @click="sendMessage">Send</button>
+            <input type="text" v-model="chatIn" @keypress.enter="sendMessage"><button type="button" @click="sendMessage">Send</button>
           </div>
         </div>
       </div>
@@ -166,17 +192,62 @@
           offBoardPiece: null,
           admin: {% if admin %}true{% else %}false{% endif %},
           whitelistOpen: false,
-          whitelistRight: 0,
+          whitelistLeft: 0,
           whitelistTop: 0,
           whitelist: [],
           inviteUsername: '',
+          room_name: '{{room_name}}',
+          whitelistError: '',
         },
         methods: {
-          inviteUserEnter: function() {
-
-          },
           inviteUser: function() {
-
+            axios({
+              method: 'post',
+              url: '{% url 'tabletops:whitelist' %}',
+              headers: {
+                'X-CSRFToken': '{{csrf_token}}'
+              },
+              data: {
+                'username': this.inviteUsername,
+                'action': 'invite',
+                'room_name': this.room_name,
+              }
+            }).then(response => {
+              data = response.data
+              this.whitelistError = data['error']
+              this.whitelist = data['whitelist']
+              this.admin = data['admin']
+            })
+          },
+          refreshWhitelist: function() {
+            axios({
+              method: 'post',
+              url: '{% url 'tabletops:whitelist' %}',
+              headers: {
+                'X-CSRFToken': '{{csrf_token}}'
+              },
+              data: {
+                'username': '',
+                'action': 'refresh',
+                'room_name': this.room_name,
+              }
+            }).then(response => {
+              data = response.data
+              this.whitelistError = data['error']
+              this.whitelist = data['whitelist']
+              this.admin = data['admin']
+            })
+          },
+          openWhitelist: function(event) {
+            console.log(event.clientX);
+            this.whitelistLeft = event.clientX - 300
+            this.whitelistTop = event.clientY + 10
+            this.refreshWhitelist()
+            if (this.whitelistOpen) {
+              this.whitelistOpen = false
+            } else {
+              this.whitelistOpen = true
+            }
           },
           movePiece: function(spot, index) {
             if (this.offBoardPiece != null) {
@@ -225,11 +296,6 @@
               this.offBoardPiece = index
             } else {
               this.offBoardPiece = null
-            }
-          },
-          enterKeyChat: function(e) {
-            if (e.keyCode === 13) {
-              this.sendMessage()
             }
           },
           sendMessage: function() {

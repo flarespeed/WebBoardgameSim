@@ -45,7 +45,7 @@ def room(request, room_name):
     if current_room:
         if current_room[0].whitelist.filter(id=request.user.id).exists() or current_room[0].admin == request.user:
             return render(request, 'tabletops/board.html', {
-            'room_name': current_room[0].name, 'board': current_room[0].board_state, 'board_width': current_room[0].board_width, 'board_height': current_room[0].board_height, 'calcVh': 97/current_room[0].board_height, 'off_board': current_room[0].off_board, 'admin': current_room.admin == request.user,
+            'room_name': current_room[0].name, 'board': current_room[0].board_state, 'board_width': current_room[0].board_width, 'board_height': current_room[0].board_height, 'calcVh': 97/current_room[0].board_height, 'off_board': current_room[0].off_board, 'admin': current_room[0].admin == request.user,
             })
     return redirect(reverse('tabletops:index'))
 
@@ -85,3 +85,29 @@ def save_template(request):
     template.visible = parsed['visible']
     template.save()
     return HttpResponse('saved successfully')
+
+@login_required
+def whitelist(request):
+    data = json.loads(request.body)
+    room = get_object_or_404(GameRoom, name=data['room_name'])
+    whitelist = room.whitelist.all()
+    username_list = []
+    if request.user in whitelist:
+        for user in whitelist:
+            username_list.append(user.username)
+    if request.user == room.admin:
+        if data['action'] != 'invite':
+            return JsonResponse({'whitelist': username_list, 'error': '', 'admin': True})
+        found = User.objects.filter(username=data['username'])
+        if found.exists():
+            invitee = found[0]
+            room.whitelist.add(invitee)
+            username_list.append(invitee.username)
+            return JsonResponse({'whitelist': username_list, 'error': '', 'admin': True})
+        else:
+            return JsonResponse({'whitelist': username_list, 'error': 'No user by that name found', 'admin': True})
+    else:
+        if data['action'] != 'invite':
+            return JsonResponse({'whitelist': username_list, 'error': '', 'admin': False})
+        else:
+            return JsonResponse({'whitelist': username_list, 'error': 'non admins are not allowed to invite other players, nice try though', 'admin': False})

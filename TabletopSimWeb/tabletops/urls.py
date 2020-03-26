@@ -11,4 +11,5 @@ urlpatterns = [
     path('newRoom/', views.create_room, name='newroom'),
     path('room/<str:room_name>/', views.room, name='room'),
     path('savetemp/', views.save_template, name='save_temp'),
+    path('whitelist/', views.whitelist, name='whitelist')
 ]
