@@ -3,24 +3,25 @@
   <head>
     <meta charset="utf-8">
     <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
     <title>{{room_name}}</title>
     <style type="text/css">
       body{
         background-color: #444;
-        margin: 0.5vh;
+        margin: 0.5vmin;
       }
       .board{
         display: grid;
-        grid-template-columns: repeat({{board_width}}, {{calcVh}}vh);
-        grid-template-rows: repeat({{board_height}}, {{calcVh}}vh);
+        grid-template-columns: repeat({{board_width}}, {{calcVh}}vmin);
+        grid-template-rows: repeat({{board_height}}, {{calcVh}}vmin);
         width: auto;
         background-color: gold;
-        padding: 0.4vh;
-        border: 0.6vh solid black;
+        padding: 0.4vmin;
+        border: 0.6vmin solid black;
       }
       .chat{
         width: auto;
-        height: 47.5vh;
+        height: 47.5vmin;
         display: flex;
         flex-direction: column;
         justify-content: flex-end;
@@ -30,7 +31,7 @@
       .boardside{
         overflow: auto;
         width: auto;
-        height: 47.5vh;
+        height: 47.5vmin;
         display: flex;
         flex-direction: column;
         background-color: #333;
@@ -41,7 +42,7 @@
         height: 100%
       }
       .sidebar{
-        padding: 0.5vh;
+        padding: 0.5vmin;
         width: auto;
         display: flex;
         flex-direction: column;
@@ -54,13 +55,16 @@
         flex-direction: row;
       }
       .black{
-        background-color: dimgrey;
+        background-color: #222;
+        border: 1px solid black;
       }
       .white{
         background-color: white;
+        border: 1px solid black;
       }
       .red{
         background-color: darkred;
+        border: 1px solid black;
       }
       .board div{
         display: flex;
@@ -88,9 +92,12 @@
         max-height: 1em;
       }
       .invites{
-        height: 3vh;
+        height: 3vmin;
         display: flex;
         align-items: center;
+      }
+      .selected{
+        background-color: darkslategrey;
       }
     </style>
   </head>
@@ -103,6 +110,9 @@
       </div>
       <div class="sidebar">
         <div class="boardside">
+          <div v-if="selectedSpot" class="stack">
+            <div v-for="(piece, index) in selectedSpot.pieces" :class="{selected:index == selectedPiece}" @click="selectPiece(index)"><img class='tinyPiece' :src="piece.img" :alt="piece.name + ' icon'">[[piece.name]]</div>
+          </div>
           <div v-if="selectedSpot" class="remove" @click="toOffBoard">
             remove piece(s) from board
           </div>
@@ -111,7 +121,16 @@
           </div>
         </div>
         <div class="invites">
-          <button>invite/remove players</button>
+          <button v-if="admin">invite/remove players</button>
+          <button v-if="!admin">whitelisted players</button>
+          <div v-if="whitelistOpen" class="floater" :style="'top: '+ whitelistTop + '; left: ' + whitelistLeft">
+            <div v-if="admin">
+              <input type="text" @keypress="inviteUserEnter" placeholder="username" v-model="inviteUsername"><button @click="inviteUser">invite</button>
+            </div>
+            <div v-for="username in whitelist">
+              [[username]] <button v-if="admin" @click>kick</button>
+            </div>
+          </div>
         </div>
         <div class="chat">
           <div class="messages">
@@ -125,7 +144,7 @@
             </div>
           </div>
           <div class="chatinputs">
-            <input type="text" v-model="chatIn"><button type="button" @click="sendMessage">Send</button>
+            <input type="text" v-model="chatIn" @keypress="enterKeyChat"><button type="button" @click="sendMessage">Send</button>
           </div>
         </div>
       </div>
@@ -145,20 +164,33 @@
           messages: [],
           selectedPiece: 0,
           offBoardPiece: null,
+          admin: {% if admin %}true{% else %}false{% endif %},
+          whitelistOpen: false,
+          whitelistRight: 0,
+          whitelistTop: 0,
+          whitelist: [],
+          inviteUsername: '',
         },
         methods: {
+          inviteUserEnter: function() {
+
+          },
+          inviteUser: function() {
+
+          },
           movePiece: function(spot, index) {
-            if (this.offBoardPiece != null){
+            if (this.offBoardPiece != null) {
+              console.log(this.offBoardPiece);
               this.socket.send(JSON.stringify({
-                  'type': 'move', 'content': {'piece': this.selectedPiece, 'from': {'x': -1, 'y': -1, 'i': -1}, 'to': {'x': spot.x, 'y': spot.y, 'i': index}}
+                  'type': 'move', 'content': {'piece': this.offBoardPiece, 'from': {'x': -1, 'y': -1, 'i': -1}, 'to': {'x': spot.x, 'y': spot.y, 'i': index}}
               }))
               this.selectedSpot = null
               this.offBoardPiece = null
               this.selectedIndex = -1
-            } else if (this.selectedSpot == spot){
+            } else if (this.selectedSpot == spot) {
               this.selectedIndex = -1
               this.selectedSpot = null
-            } else if (this.selectedSpot){
+            } else if (this.selectedSpot) {
               this.socket.send(JSON.stringify({
                   'type': 'move', 'content': {'piece': this.selectedPiece, 'from': {'x': this.selectedSpot.x, 'y': this.selectedSpot.y, 'i': this.selectedIndex}, 'to': {'x': spot.x, 'y': spot.y, 'i': index}}
               }))
@@ -172,6 +204,10 @@
                 this.selectedPiece = 0
               }
             }
+          },
+          selectPiece: function(index) {
+            this.selectedPiece = index
+            console.log(this.selectedPiece)
           },
           toOffBoard: function() {
             if (this.selectedSpot){
@@ -189,6 +225,11 @@
               this.offBoardPiece = index
             } else {
               this.offBoardPiece = null
+            }
+          },
+          enterKeyChat: function(e) {
+            if (e.keyCode === 13) {
+              this.sendMessage()
             }
           },
           sendMessage: function() {
@@ -238,18 +279,18 @@
                     movedPieces = startSpot.pieces[content.piece].name
                   }
                   this.messages.push({'user': 'system', 'time': new Date(content.time), 'message': content.user + ' moved ' + movedPieces + ' from x:' + startSpot.x + ', y:' + startSpot.y + ' off of board.' })
-                  if (content.piece >= 0){
-                    if (!this.off_board.includes(startSpot.pieces[content.piece])){
-                      this.off_board.unshift(startSpot.pieces[content.piece])
-                    }
-                    startSpot.pieces.splice(content.piece, 1)
-                  } else {
+                  if (content.piece == -1){
                     startSpot.pieces.forEach((piece) => {
-                      if (!this.off_board.includes(piece)){
+                      if (!arrayIncludesObject(this.off_board, piece)){
                         this.off_board.unshift(piece)
                       }
                     })
                     startSpot.pieces = {}
+                  } else {
+                    if (!arrayIncludesObject(this.off_board, startSpot.pieces[content.piece])){
+                      this.off_board.unshift(startSpot.pieces[content.piece])
+                    }
+                    startSpot.pieces.splice(content.piece, 1)
                   }
                   if (startSpot == this.selectedSpot){
                     this.selectedSpot = null
@@ -292,6 +333,15 @@
           }
         }
       })
+      function arrayIncludesObject(array, object) {
+        let matched = false
+        array.forEach((item, i) => {
+          if (JSON.stringify(item)==JSON.stringify(object)){
+            matched = true
+          }
+        })
+        return matched
+      }
     </script>
   </body>
 </html>

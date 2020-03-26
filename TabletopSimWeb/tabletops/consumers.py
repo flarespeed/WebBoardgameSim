@@ -104,8 +104,7 @@ class GameConsumer(AsyncWebsocketConsumer):
                 stack = board[content['from']['i']]['pieces']
                 for item in board[content['from']['i']]['pieces']:
                     board[content['from']['i']]['pieces'].remove(item)
-                for i in range(len(stack)):
-                    board[content['to']['i']]['pieces'].insert(i, stack[i])
+                board[content['to']['i']]['pieces'] = stack + board[content['to']['i']]['pieces']
         current_room.off_board = json.dumps(off_board)
         current_room.board_state = json.dumps(board)
         current_room.save()

@@ -45,7 +45,7 @@ def room(request, room_name):
     if current_room:
         if current_room[0].whitelist.filter(id=request.user.id).exists() or current_room[0].admin == request.user:
             return render(request, 'tabletops/board.html', {
-            'room_name': current_room[0].name, 'board': current_room[0].board_state, 'board_width': current_room[0].board_width, 'board_height': current_room[0].board_height, 'calcVh': 97/current_room[0].board_height, 'off_board': current_room[0].off_board
+            'room_name': current_room[0].name, 'board': current_room[0].board_state, 'board_width': current_room[0].board_width, 'board_height': current_room[0].board_height, 'calcVh': 97/current_room[0].board_height, 'off_board': current_room[0].off_board, 'admin': current_room.admin == request.user,
             })
     return redirect(reverse('tabletops:index'))
 
