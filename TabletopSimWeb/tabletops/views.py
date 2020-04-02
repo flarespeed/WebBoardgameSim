@@ -87,6 +87,46 @@ def save_template(request):
     return HttpResponse('saved successfully')
 
 @login_required
+def history(request):
+    data = json.loads(request.body)
+    room = get_object_or_404(GameRoom, name=data['room_name'])
+    whitelist = room.whitelist.all()
+    if request.user in whitelist:
+        history = []
+        message_list = GameMessage.objects.all()
+        for message in message_list:
+            history.append(message)
+        move_list = Move.objects.all()
+        for move in move_list:
+            history.append(move)
+        history.sort(key=lambda moment: moment.time, reverse=True)
+        hist_for_json = []
+        for item in history:
+            if item.__class__.__name__ == 'GameMessage':
+                hist_for_json.append({'username': item.username, 'time': item.time.strftime('%d %b %Y %X %Z'), 'content': item.content})
+            elif item.__class__.__name__ == 'Move':
+                parsed = json.loads(item.content)
+                print(parsed)
+                if parsed['from']:
+                    if 'pieceName' in parsed:
+                        if parsed['from']['i'] == -1:
+                            constructed_message = 'moved ' + parsed['pieceName'] + ' from off board to x: ' + str(parsed['to']['x']) + ', y: ' + str(parsed['to']['y']) + '.'
+                        elif parsed['to']['i'] == -1:
+                            constructed_message = 'moved ' + parsed['pieceName'] + ' from x: ' + str(parsed['from']['x']) + ', y: ' + str(parsed['from']['y']) + ' off of board.'
+                        else:
+                            constructed_message = 'moved ' + parsed['pieceName'] + ' from x: ' + str(parsed['from']['x']) + ', y: ' + str(parsed['from']['y']) + ' to x: ' + str(parsed['to']['x']) + ', y: ' + str(parsed['to']['y']) + '.'
+                    else:
+                        if parsed['from']['i'] == -1:
+                            constructed_message = 'moved unknown piece from off board to x: ' + str(parsed['to']['x']) + ', y: ' + str(parsed['to']['y']) + '.'
+                        elif parsed['to']['i'] == -1:
+                            constructed_message = 'moved unknown piece from x: ' + str(parsed['from']['x']) + ', y: ' + str(parsed['from']['y']) + ' off of board.'
+                        else:
+                            constructed_message = 'moved unknown piece from x: ' + str(parsed['from']['x']) + ', y: ' + str(parsed['from']['y']) + ' to x: ' + str(parsed['to']['x']) + ', y: ' + str(parsed['to']['y']) + '.'
+                hist_for_json.append({'username': 'system', 'time': item.time.strftime('%d %b %Y %X %Z'), 'content': item.username + constructed_message})
+        return JsonResponse({'content': hist_for_json, 'error': ''})
+    return JsonResponse({'content': [], 'error': "You ain't on the list"})
+
+@login_required
 def whitelist(request):
     data = json.loads(request.body)
     room = get_object_or_404(GameRoom, name=data['room_name'])

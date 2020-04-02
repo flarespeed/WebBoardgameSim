@@ -9,6 +9,13 @@
       body{
         background-color: #444;
         margin: 0.5vmin;
+        width: auto;
+      }
+      #app{
+        width: 100%;
+        display: flex;
+        flex-direction: row;
+        justify-content: center;
       }
       .board{
         display: grid;
@@ -49,10 +56,8 @@
         justify-content: space-between;
         background-color: #333;
         color: white;
-      }
-      #app{
-        display: flex;
-        flex-direction: row;
+        flex-grow: 1;
+        max-width: 60vh;
       }
       .black{
         background-color: #222;
@@ -119,6 +124,17 @@
         flex-direction: row-reverse;
         background-color: #444;
       }
+      .chatinputs{
+        display: flex;
+        flex-direction: row;
+      }
+      .chatinputs input{
+        flex-grow: 1;
+        min-width: 200px;
+      }
+      .chatinputs button{
+        max-width: 200px;
+      }
     </style>
   </head>
   <body>
@@ -131,14 +147,22 @@
       <div class="sidebar">
         <div class="boardside">
           <div v-if="selectedSpot" class="stack">
-            <div v-for="(piece, index) in selectedSpot.pieces" :class="{selected:index == selectedPiece}" @click="selectPiece(index)"><img class='tinyPiece' :src="piece.img" :alt="piece.name + ' icon'">[[piece.name]]</div>
+            <div v-for="(piece, index) in selectedSpot.pieces" >
+              <div :class="{selected:index == selectedPiece}" @click="selectPiece(index)"><span><img class='tinyPiece' :src="piece.img" :alt="piece.name + ' icon'">[[piece.name]]</span></div>
+            </div>
           </div>
           <div v-if="selectedSpot" class="remove" @click="toOffBoard">
-            remove piece(s) from board
+            remove piece from board
           </div>
-          <div v-for="(piece, index) in off_board" :class="{selected:index == offBoardPiece}" @click="fromOffBoard(index)">
-            <img class='tinyPiece' :src="piece.img" :alt="piece.name + ' icon'">[[piece.name]]
+          <div v-for="(piece, index) in off_board" :class="{selected:index == offBoardPiece}" >
+            <div class="pieceAndButtons">
+              <span @click="fromOffBoard(index)"><img class='tinyPiece' :src="piece.img" :alt="piece.name + ' icon'">[[piece.name]]</span><span><button @click="editDropdown(index)">edit</button><button @click='deletePiece(index)'>delete</button></span>
+            </div>
+            <div v-if="((index == offBoardPiece) && pieceEditDropdown)">
+              name: <input type="text" v-model="piece.name"> image url: <input type="url" v-model="piece.img"><button @click="editPiece(piece)">save changes</button>
+            </div>
           </div>
+          <button @click='createPiece'>create blank piece</button>
         </div>
         <div class="invites">
           <button v-if="admin" @click='openWhitelist'>invite/remove players</button>
@@ -154,12 +178,15 @@
               <input type="text" @keypress.enter="inviteUser" placeholder="username" v-model="inviteUsername"><button @click="inviteUser">invite</button>
             </div>
             <div v-for="username in whitelist">
-              [[username]] <button v-if="admin">kick</button>
+              [[username]] <button v-if="(admin && !kickOpen)" @click="kickDropdown(username)">kick</button><br v-if="kickOpen">
+              <div v-if="(kickOpen && username == kickee)">
+                <input type="text" v-model="kickReason"><button @click="kickUser(username)">confirm kick</button>
+              </div>
             </div>
           </div>
         </div>
         <div class="chat">
-          <div class="messages">
+          <div class="messages" id="messages">
             <div v-for="(message, index) in messages">
               <div v-if="showUsername(index)" class="name">
                 [[message.user]]: <span class="time">[[message.time.toLocaleString()]]</span>
@@ -198,6 +225,10 @@
           inviteUsername: '',
           room_name: '{{room_name}}',
           whitelistError: '',
+          kickReason: '',
+          kickOpen: false,
+          kickee: '',
+          pieceEditDropdown: false,
         },
         methods: {
           inviteUser: function() {
@@ -219,6 +250,44 @@
               this.admin = data['admin']
             })
           },
+          kickDropdown: function functionName(user) {
+            this.kickOpen = true
+            this.kickee = user
+          },
+          kickUser: function(user) {
+            reason = 'unspecified'
+            if (this.kickReason){
+              reason = '"' + this.kickReason + '"'
+            }
+            this.socket.send(JSON.stringify({
+                'type': 'kick', 'content': {'kickee': user, 'reason': reason}
+            }))
+            this.kickReason = ''
+            this.kickOpen = false
+          },
+          editDropdown: function(index) {
+            this.offBoardPiece = index
+            if (this.pieceEditDropdown == false) {
+              this.pieceEditDropdown = true
+            } else {
+              this.pieceEditDropdown = false
+            }
+          },
+          editPiece: function(piece) {
+            this.socket.send(JSON.stringify({
+                'type': 'piece_edit', 'content': {'piece': this.offBoardPiece, 'to': {'name': piece.name, 'img': piece.img}}
+            }))
+          },
+          deletePiece: function(index) {
+            this.socket.send(JSON.stringify({
+                'type': 'piece_delete', 'content': {'piece': index}
+            }))
+          },
+          createPiece: function() {
+            this.socket.send(JSON.stringify({
+                'type': 'piece_create', 'content': {'name': 'new_piece', 'img': 'https://i.imgur.com/FgNU3lA.png'}
+            }))
+          },
           refreshWhitelist: function() {
             axios({
               method: 'post',
@@ -239,7 +308,6 @@
             })
           },
           openWhitelist: function(event) {
-            console.log(event.clientX);
             this.whitelistLeft = event.clientX - 300
             this.whitelistTop = event.clientY + 10
             this.refreshWhitelist()
@@ -249,9 +317,14 @@
               this.whitelistOpen = true
             }
           },
+          scrollToEnd: function() {
+            setTimeout(() => {
+              var container = this.$el.querySelector("#messages")
+              container.scrollTop = container.scrollHeight
+            }, 50)
+          },
           movePiece: function(spot, index) {
             if (this.offBoardPiece != null) {
-              console.log(this.offBoardPiece);
               this.socket.send(JSON.stringify({
                   'type': 'move', 'content': {'piece': this.offBoardPiece, 'from': {'x': -1, 'y': -1, 'i': -1}, 'to': {'x': spot.x, 'y': spot.y, 'i': index}}
               }))
@@ -268,27 +341,27 @@
               this.selectedSpot = null
               this.selectedIndex = -1
             } else if (spot.pieces.length != 0) {
-              console.log('pieces here');
               this.selectedSpot = spot
               this.selectedIndex = index
               if (this.selectedPiece > 0) {
                 this.selectedPiece = 0
               }
             }
+            this.pieceEditDropdown = false
           },
           selectPiece: function(index) {
             this.selectedPiece = index
-            console.log(this.selectedPiece)
+            this.pieceEditDropdown = false
           },
           toOffBoard: function() {
             if (this.selectedSpot){
-              console.log('sent thingy');
               this.socket.send(JSON.stringify({
                   'type': 'move', 'content': {'piece': this.selectedPiece, 'from': {'x': this.selectedSpot.x, 'y': this.selectedSpot.y, 'i': this.selectedIndex}, 'to': {'x': -1, 'y': -1, 'i': -1}}
               }))
               this.selectedSpot = null
               this.selectedIndex = -1
             }
+            this.pieceEditDropdown = false
           },
           fromOffBoard: function(index) {
             this.selectedSpot = null
@@ -304,6 +377,7 @@
                   'type': 'message', 'content': {'message': this.chatIn}
               }))
             }
+            this.chatIn = ''
           },
           showUsername: function(i) {
             if (i==0){
@@ -322,9 +396,25 @@
           let connected = false
           this.socket.onopen = () => {
             connected = true
+            axios({
+              method: 'post',
+              url: '{% url 'tabletops:history' %}',
+              headers: {
+                'X-CSRFToken': '{{csrf_token}}'
+              },
+              data: {
+                'room_name': this.room_name
+              }
+            }).then(response => {
+              data = response.data
+              history = data.content
+              data.content.forEach((moment, i) => {
+                this.messages.unshift({'user': moment.username, 'time': new Date(moment.time), 'message': moment.content})
+              })
+              this.scrollToEnd()
+            })
             this.socket.onmessage = (e) => {
               var data = JSON.parse(e.data)
-              console.log(data);
               var user = data['user']
               if (data['type'] == "message") {
                 var content = data['content']
@@ -384,18 +474,35 @@
                     this.selectedSpot = null
                   }
                 }
+              } else if (data['type'] == "kick") {
+                var content = data['content']
+                this.messages.push({'user': 'system', 'time': new Date(content.time), 'message': content.user + ' kicked ' + content.kickee + ' for  ' + content.reason + "."})
+              } else if (data['type'] == 'piece_create') {
+                var content = data['content']
+                this.messages.push({'user': 'system', 'time': new Date(content.time), 'message': content.message})
+                this.off_board.push(content.piece)
+              } else if (data['type'] == 'piece_edit') {
+                var content = data['content']
+                this.messages.push({'user': 'system', 'time': new Date(content.time), 'message': content.message})
+                this.off_board[content.piece] = content.to
+              } else if (data['type'] == 'piece_delete') {
+                var content = data['content']
+                this.messages.push({'user': 'system', 'time': new Date(content.time), 'message': content.message})
+                this.off_board.splice(content.piece, 1)
               } else {
                 this.messages.push({'user': 'ERROR', 'time': new Date(Date.now()), 'message': 'invalid data type recieved'})
               }
+              this.scrollToEnd()
             }
           }
           this.socket.onclose = (e) => {
-              console.error('game socket closed')
-              if (connected == false) {
-                this.messages.push({'user': 'ERROR', 'time': new Date(Date.now()), 'message': 'network error, if you are invited to this room please reload, if you are not, please quit messing around.'})
-              } else {
-                this.messages.push({'user': 'ERROR', 'time': new Date(Date.now()), 'message': 'network error, please reload.'})
-              }
+            console.error('game socket closed')
+            if (connected == false) {
+              this.messages.push({'user': 'ERROR', 'time': new Date(Date.now()), 'message': 'network error, if you are invited to this room please reload, if you are not, please quit messing around.'})
+            } else {
+              this.messages.push({'user': 'ERROR', 'time': new Date(Date.now()), 'message': 'network error, please reload.'})
+            }
+            this.scrollToEnd()
           }
         }
       })

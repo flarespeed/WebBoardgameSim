@@ -33,7 +33,7 @@ def save_user(request):
         login(request, user)
         if next != '':
             return redirect(next)
-        return redirect(reverse('accounts:home'))
+        return redirect(reverse('tabletops:index'))
     else:
         pass
 
@@ -58,7 +58,7 @@ def login_user(request):
         login(request, user)
         if next != '':
             return redirect(next)
-        return redirect(reverse('accounts:home'))
+        return redirect(reverse('tabletops:index'))
     if next == '':
         return redirect(reverse('accounts:login') + '?message=failure')
     return redirect(reverse('accounts:login') + '?message=failure&next='+next)
