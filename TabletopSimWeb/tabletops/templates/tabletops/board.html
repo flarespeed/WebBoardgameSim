@@ -135,6 +135,20 @@
       .chatinputs button{
         max-width: 200px;
       }
+      .pieceAndButtons{
+        display: flex;
+        align-items: center;
+        text-align: center center;
+      }
+      .offBoardPiece{
+        flex-grow: 1;
+      }
+      .systemName{
+        color: #eb7;
+      }
+      .even{
+        background-color: #444;
+      }
     </style>
   </head>
   <body>
@@ -154,9 +168,9 @@
           <div v-if="selectedSpot" class="remove" @click="toOffBoard">
             remove piece from board
           </div>
-          <div v-for="(piece, index) in off_board" :class="{selected:index == offBoardPiece}" >
+          <div v-for="(piece, index) in off_board" :class="{selected:index == offBoardPiece, even:index%2 == 1 && index != offBoardPiece}" >
             <div class="pieceAndButtons">
-              <span @click="fromOffBoard(index)"><img class='tinyPiece' :src="piece.img" :alt="piece.name + ' icon'">[[piece.name]]</span><span><button @click="editDropdown(index)">edit</button><button @click='deletePiece(index)'>delete</button></span>
+              <span class="offBoardPiece" @click="fromOffBoard(index)"><img class='tinyPiece' :src="piece.img" :alt="piece.name + ' icon'">[[piece.name]]</span><span><button @click="editDropdown(index)">edit</button><button @click='deletePiece(index)'>delete</button></span>
             </div>
             <div v-if="((index == offBoardPiece) && pieceEditDropdown)">
               name: <input type="text" v-model="piece.name"> image url: <input type="url" v-model="piece.img"><button @click="editPiece(piece)">save changes</button>
@@ -188,7 +202,7 @@
         <div class="chat">
           <div class="messages" id="messages">
             <div v-for="(message, index) in messages">
-              <div v-if="showUsername(index)" class="name">
+              <div v-if="showUsername(index)" :class="{name:message.user != 'system', systemName:message.user == 'system'}">
                 [[message.user]]: <span class="time">[[message.time.toLocaleString()]]</span>
               </div>
               <div class="message">
@@ -255,7 +269,7 @@
             this.kickee = user
           },
           kickUser: function(user) {
-            reason = 'unspecified'
+            let reason = 'unspecified'
             if (this.kickReason){
               reason = '"' + this.kickReason + '"'
             }
@@ -279,13 +293,15 @@
             }))
           },
           deletePiece: function(index) {
-            this.socket.send(JSON.stringify({
+            if (confirm('are you sure you want to delete that?')){
+              this.socket.send(JSON.stringify({
                 'type': 'piece_delete', 'content': {'piece': index}
-            }))
+              }))
+            }
           },
           createPiece: function() {
             this.socket.send(JSON.stringify({
-                'type': 'piece_create', 'content': {'name': 'new_piece', 'img': 'https://i.imgur.com/FgNU3lA.png'}
+                'type': 'piece_create', 'content': {'name': 'new piece', 'img': 'https://i.imgur.com/FgNU3lA.png'}
             }))
           },
           refreshWhitelist: function() {

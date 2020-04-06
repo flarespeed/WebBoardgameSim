@@ -230,6 +230,8 @@ class GameConsumer(AsyncWebsocketConsumer):
 
         return new.time, prev
 
+
+    # each function after this recieves different types of message from the group that they're in
     async def game_message(self, event):
         message = event['message']
         user = event['user']

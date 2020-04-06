@@ -4,9 +4,23 @@
     <meta charset="utf-8">
     <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
-    <title></title>
+    <title>{{user.username}}'s games</title>
+    <style type="text/css">
+      nav{
+        background-color: lightgrey;
+        display: flex;
+        justify-content: flex-end;
+        flex-direction: row;
+      }
+      nav span{
+        margin-left: 0.5em;
+      }
+    </style>
   </head>
   <body>
+    <nav>
+      <span><a href="{% url 'accounts:home' %}">{{user.username}}</a></span><span><a href="{% url 'accounts:logout' %}">logout</a></span>
+    </nav>
     <div>
       <h4>{{user.username}}'s games</h4>
       {% for game in admingames %}

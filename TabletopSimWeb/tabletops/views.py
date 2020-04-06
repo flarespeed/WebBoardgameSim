@@ -80,7 +80,6 @@ def template_edit(request, template_name):
 def save_template(request):
     parsed = json.loads(request.body)
     template = get_object_or_404(BoardTemplate, pk=parsed['template_name'])
-    print(parsed)
     template.board_state = parsed['board_state']
     template.visible = parsed['visible']
     template.save()
@@ -106,7 +105,6 @@ def history(request):
                 hist_for_json.append({'username': item.username, 'time': item.time.strftime('%d %b %Y %X %Z'), 'content': item.content})
             elif item.__class__.__name__ == 'Move':
                 parsed = json.loads(item.content)
-                print(parsed)
                 if parsed['from']:
                     if 'pieceName' in parsed:
                         if parsed['from']['i'] == -1:
